@@ -6,6 +6,7 @@ exclude =
     .git,
     .gitignore,
     */migrations/*,
+    alembic/*,
     __pycache__
 
 ignore =
