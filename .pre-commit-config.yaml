@@ -17,5 +17,3 @@ repos:
     hooks:
       - id: flake8
         exclude: ^.*\b(migrations)\b.*$
-        args: [--config=.flake8]
-# pre-commit install --install-hooks
