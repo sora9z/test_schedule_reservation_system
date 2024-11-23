@@ -1,8 +1,8 @@
 """Add user model
 
-Revision ID: 4c8bb39cbf26
+Revision ID: 430c565e86cc
 Revises: 
-Create Date: 2024-11-22 16:04:10.831302
+Create Date: 2024-11-23 15:32:04.216365
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "4c8bb39cbf26"
+revision: str = "430c565e86cc"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -26,8 +26,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("email", sa.String(), nullable=True),
         sa.Column("hashed_password", sa.String(), nullable=True),
-        sa.Column("type", postgresql.ENUM("USER", "ADMIN", name="usertype"), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=True),
+        sa.Column("type", postgresql.ENUM("USER", "ADMIN", name="user_type"), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
