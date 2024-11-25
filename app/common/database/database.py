@@ -10,24 +10,16 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import psycopg
-from sqlalchemy import URL
 from sqlalchemy.ext.asyncio import AsyncSession, async_scoped_session, async_sessionmaker, create_async_engine
 
 logger = logging.getLogger(__name__)
 
 
 class Database:
-    def __init__(self, username: str, password: str, host: str, database: str) -> None:
+    def __init__(self, database_url: str) -> None:
 
-        url_object = URL.create(
-            "postgresql+psycopg",
-            username=username,
-            password=password,
-            host=host,
-            database=database,
-        )  # dialect+driver://username:password@host:port/database
-
-        self.async_engine = create_async_engine(url_object, pool_pre_ping=True, echo=True)
+        # dialect+driver://username:password@host:port/database
+        self.async_engine = create_async_engine(f"postgresql+psycopg://{database_url}", pool_pre_ping=True, echo=True)
 
         self.async_session = async_scoped_session(
             async_sessionmaker(

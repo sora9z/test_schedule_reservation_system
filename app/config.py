@@ -12,10 +12,9 @@ class Config(BaseSettings):
     DATABASE_PORT: str = Field(default="5432", env="DATABASE_PORT")
     DATABASE_NAME: str = Field(default="grep_db", env="DATABASE_NAME")
 
-    DATABASE_URL: str = Field(
-        default=f"{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}",
-        env="DATABASE_URL",
-    )
+    @property
+    def DATABASE_URL(self) -> str:
+        return f"{self.DATABASE_USER}:{self.DATABASE_PASSWORD}@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"
 
 
 settings = Config(_env_file=".env", _env_file_encoding="utf-8")
