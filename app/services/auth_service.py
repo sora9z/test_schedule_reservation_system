@@ -48,13 +48,13 @@ class AuthService:
                 raise AuthenticationError("인증되지 않은 사용자입니다.")
 
             access_token = create_access_token(
-                data={"user_id": user.id, "type": user.type},
+                data={"user_id": user.id, "type": str(user.type)},
                 expires_delta=self.settings.ACCESS_TOKEN_EXPIRE_MINUTES,
                 secret_key=self.settings.JWT_SECRET_KEY,
                 algorithm=self.settings.JWT_ALGORITHM,
             )
             refresh_token = create_refresh_token(
-                data={"user_id": user.id, "type": user.type},
+                data={"user_id": user.id, "type": str(user.type)},
                 expires_delta=self.settings.REFRESH_TOKEN_EXPIRE_MINUTES,
                 secret_key=self.settings.JWT_SECRET_KEY,
                 algorithm=self.settings.JWT_ALGORITHM,
