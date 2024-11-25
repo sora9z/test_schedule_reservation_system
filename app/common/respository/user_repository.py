@@ -18,11 +18,15 @@ class AuthRepository:
                 user = await session.scalar(select(User).where(User.email == email))
             return user
         except Exception as e:
-            logger.error(f"[user_repository] get_user_by_email error: {e}")
+            logger.error(f"[repository/user_repository] get_user_by_email error: {e}")
             raise e
 
     async def create_user(self, user: User) -> User:
         async with self.session_factory() as session:
-            session.add(user)
-            await session.commit()
-            return user
+            try:
+                session.add(user)
+                await session.commit()
+                return user
+            except Exception as e:
+                logger.error(f"[repository/user_repository] create_user error: {e}")
+                raise e

@@ -1,9 +1,12 @@
+from fastapi import status
+
+
 class DuplicateError(Exception):
     """데이터 중복 시 발생하는 예외"""
 
     def __init__(self, message: str):
         self.message = message
-        self.status_code = 409
+        self.status_code = status.HTTP_409_CONFLICT
 
 
 class NotFoundError(Exception):
@@ -11,4 +14,12 @@ class NotFoundError(Exception):
 
     def __init__(self, message: str):
         self.message = message
-        self.status_code = 404
+        self.status_code = status.HTTP_404_NOT_FOUND
+
+
+class AuthenticationError(Exception):
+    """인증 실패 시 발생하는 예외"""
+
+    def __init__(self, message: str):
+        self.message = message
+        self.status_code = status.HTTP_401_UNAUTHORIZED

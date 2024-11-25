@@ -1,13 +1,13 @@
 # https://python-dependency-injector.ets-labs.org/examples/fastapi-sqlalchemy.html#tests
 import hashlib
-from multiprocessing import AuthenticationError
 
 import pytest
 
 from app.common.constants import UserType
 from app.common.database.models.user import User
-from app.common.exceptions import DuplicateError
+from app.common.exceptions import AuthenticationError, DuplicateError
 from app.common.respository.user_repository import AuthRepository
+from app.config import Config
 from app.schemas.user_schema import UserCreateRequest, UserCreateResponse, UserLoginRequest
 from app.services.auth_service import AuthService
 
@@ -18,8 +18,21 @@ def mock_auth_repository(mocker):
 
 
 @pytest.fixture
-def auth_service(mock_auth_repository):
-    return AuthService(repository=mock_auth_repository)
+def mock_settings(mocker):
+    return mocker.Mock(spec=Config)
+
+
+def mock_create_access_token(mocker):
+    return mocker.patch("app.common.utils.jwt.create_access_token")
+
+
+def mock_create_refresh_token(mocker):
+    return mocker.patch("app.common.utils.jwt.create_refresh_token")
+
+
+@pytest.fixture
+def auth_service(mock_auth_repository, mock_settings):
+    return AuthService(repository=mock_auth_repository, settings=mock_settings)
 
 
 @pytest.mark.asyncio
@@ -58,7 +71,7 @@ async def test_create_user_fail_when_email_already_exists(auth_service, mock_aut
         id=1,
         email="grep@grep.com",
         type=UserType.USER.value,
-        hashed_password="hashed_password",
+        hashed_password=hashlib.sha256("password".encode()).hexdigest(),
     )
 
     # when
@@ -71,7 +84,7 @@ async def test_create_user_fail_when_email_already_exists(auth_service, mock_aut
 
 
 @pytest.mark.asyncio
-async def test_login_success(auth_service, mock_auth_repository):
+async def test_login_success(auth_service, mock_auth_repository, mock_settings):
     """
     [User] 사용자는 이메일과 비밀번호로 로그인 할 수 있고, accessToken, refreshToken 을 발급받는다.
     """
@@ -81,8 +94,15 @@ async def test_login_success(auth_service, mock_auth_repository):
         id=1,
         email="grep@grep.com",
         type=UserType.USER.value,
-        hashed_password="hashed_password",
+        hashed_password=hashlib.sha256("password".encode()).hexdigest(),
     )
+    mock_settings.JWT_SECRET_KEY = "mocked_secret_key"
+    mock_settings.JWT_ALGORITHM = "HS256"
+    mock_settings.ACCESS_TOKEN_EXPIRE_MINUTES = 60
+    mock_settings.REFRESH_TOKEN_EXPIRE_MINUTES = 7
+    mock_create_access_token.return_value = "mocked_access_token"
+    mock_create_refresh_token.return_value = "mocked_refresh_token"
+
     # when
     result = await auth_service.login(data=input_data)
 
