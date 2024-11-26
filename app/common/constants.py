@@ -7,3 +7,11 @@ class UserType(Enum):
 
     def __str__(self):
         return self.value
+
+
+class ReservationStatus(Enum):
+    PENDING = "PENDING"
+    CONFIRMED = "CONFIRMED"
+
+    def __str__(self):
+        return self.value

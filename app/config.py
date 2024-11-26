@@ -22,5 +22,7 @@ class Config(BaseSettings):
     def DATABASE_URL(self) -> str:
         return f"{self.DATABASE_USER}:{self.DATABASE_PASSWORD}@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"
 
+    MAX_APPLICANTS: int = Field(default=50000, json_schema_extra={"env": "MAX_APPLICANTS"})
+
 
 settings = Config(_env_file=".env", _env_file_encoding="utf-8")
