@@ -23,3 +23,11 @@ class AuthenticationError(Exception):
     def __init__(self, message: str):
         self.message = message
         self.status_code = status.HTTP_401_UNAUTHORIZED
+
+
+class JwtError(Exception):
+    """JWT 오류 시 발생하는 예외"""
+
+    def __init__(self, message: str):
+        self.message = message
+        self.status_code = status.HTTP_401_UNAUTHORIZED
