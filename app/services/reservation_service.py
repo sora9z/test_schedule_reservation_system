@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import async_scoped_session
 
 from app.common.constants import ReservationStatus
-from app.common.exceptions import BadRequestError, NotContentError
+from app.common.exceptions import BadRequestError
 from app.common.respository.reservation_repository import ReservationRepository
 from app.common.respository.slot_repository import SlotRepository
 from app.config import Config
@@ -105,11 +105,8 @@ class ReservationService:
             # 예약 가능한 시간대 조회
             available_slots = await self.slot_repository.get_available_slots(exam_date)
 
-            if not available_slots or len(available_slots) == 0:
-                raise NotContentError("예약 가능한 시간대가 없습니다.")
-
             return AvailableReservationResponse(
-                available_slots=[AvailableSlot.model_validate(slot) for slot in available_slots]
+                available_slots=[AvailableSlot.model_validate(slot) for slot in available_slots] or []
             )
         except Exception as e:
             logger.error(f"[service/reservation_service] get_available_reservation error: {e}")

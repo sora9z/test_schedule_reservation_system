@@ -2,7 +2,7 @@ from datetime import date, time, timedelta
 
 import pytest
 
-from app.common.exceptions import BadRequestError, NotContentError
+from app.common.exceptions import BadRequestError
 
 
 @pytest.mark.asyncio
@@ -62,15 +62,12 @@ async def test_get_available_reservation_fail_by_before_3_days(mock_slot_reposit
 @pytest.mark.asyncio
 async def test_get_available_reservation_fail_by_no_available_slot(mock_slot_repository, reservation_service):
     """
-    [Reservation] 예약 가능한 시간대가 없으면 NotContentError 예외가 발생한다.
+    [Reservation] 예약 가능한 시간대가 없으면 빈 배열을 반환한다.
     """
     # given
     exam_date = date.today() + timedelta(days=5)
     mock_slot_repository.get_available_slots.return_value = []
-
     # when
-    with pytest.raises(NotContentError) as e:
-        await reservation_service.get_available_reservation(exam_date)
+    result = await reservation_service.get_available_reservation(exam_date)
     # then
-    assert e.value.status_code == 204
-    assert isinstance(e.value, NotContentError)
+    assert len(result.available_slots) == 0
