@@ -132,3 +132,13 @@ class ReservationService:
         except Exception as e:
             logger.error(f"[service/reservation_service] get_reservations_by_admin error: {e}")
             raise e
+
+    async def confirm_reservations(self, reservation_id: int, user_type: UserType) -> None:
+        # 1. 예약 조회
+        # 2. 해당 시간과 겹치는 슬롯 조회
+        # 3. 슬롯 조회 결과가 없으면 not_found_error 반환
+        # 4. 각 슬롯의 남은 인원수가 하나라도 예약하려는 인원수보다 적으면 예약 불가능 에러 반환
+        # 5. 슬롯의 남은 인원수를 예약 인원수만큼 감소시키고 업데이트
+        # 6. 슬롯과 예약의 관계 테이블에 데이터 추가
+        # 7. 예약 상태를 확정으로 업데이트
+        pass
