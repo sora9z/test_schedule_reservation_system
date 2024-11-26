@@ -12,7 +12,6 @@ async def test_create_reservation_success(
     mock_reservation_repository,
     mock_slot_repository,
     reservation_service,
-    mock_session_factory,
 ):
     """
     [Reservation] 시험 날짜와 시간 정보를 올바르게 입력하면 예약을 생성할 수 있다.
@@ -26,15 +25,13 @@ async def test_create_reservation_success(
     input_data = ReservationCreateRequest(
         user_id=1, exam_date=exam_date, exam_start_time=start_time, exam_end_time=end_time, applicants=applicants
     )
-    start_datetime = datetime.combine(exam_date, start_time)
-    end_datetime = datetime.combine(exam_date, end_time)
     mock_slot_repository.get_overlapping_slots_with_external_session.return_value = []
     mock_reservation_repository.create_reservation_with_external_session.return_value = Mock(
         id=1,
         user_id=1,
         exam_date=exam_date,
-        exam_start_date=start_datetime,
-        exam_end_date=end_datetime,
+        exam_start_time=start_time,
+        exam_end_time=end_time,
         applicants=applicants,
         status=ReservationStatus.PENDING,
     )
@@ -185,8 +182,6 @@ async def test_create_reservation_success_when_overlapping_within_limit(
     input_data = ReservationCreateRequest(
         user_id=1, exam_date=exam_date, exam_start_time=start_time, exam_end_time=end_time, applicants=applicants
     )
-    start_datetime = datetime.combine(exam_date, start_time)
-    end_datetime = datetime.combine(exam_date, end_time)
 
     mock_slot_repository.get_overlapping_slots_with_external_session.return_value = [
         Mock(
@@ -199,8 +194,8 @@ async def test_create_reservation_success_when_overlapping_within_limit(
         id=1,
         user_id=1,
         exam_date=exam_date,
-        exam_start_date=start_datetime,
-        exam_end_date=end_datetime,
+        exam_start_time=start_time,
+        exam_end_time=end_time,
         applicants=applicants,
         status=ReservationStatus.PENDING,
     )

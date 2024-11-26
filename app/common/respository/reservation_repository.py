@@ -1,5 +1,7 @@
 import logging
+from typing import List
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_scoped_session
 
 from app.common.database.models.reservation import Reservation
@@ -27,3 +29,15 @@ class ReservationRepository:
         except Exception as e:
             logger.error(f"[repository/reservation_repository] _create_reservation error: {e}")
             raise e
+
+    async def get_reservations_by_user_id(self, user_id: int) -> List[Reservation]:
+        async with self.session_factory() as session:
+            query = select(Reservation).where(Reservation.user_id == user_id)
+            reservations = await session.execute(query)
+            return reservations.scalars().all()
+
+    async def get_reservations(self) -> List[Reservation]:
+        async with self.session_factory() as session:
+            query = select(Reservation)
+            reservations = await session.execute(query)
+            return reservations.scalars().all()

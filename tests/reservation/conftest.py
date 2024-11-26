@@ -10,6 +10,7 @@ from app.services.reservation_service import ReservationService
 def mock_reservation_repository(mocker):
     repository = mocker.Mock()
     repository.create_reservation_with_external_session = mocker.AsyncMock()
+    repository.get_reservations_by_user_id = mocker.AsyncMock()
     repository.get_reservations = mocker.AsyncMock()
     return repository
 

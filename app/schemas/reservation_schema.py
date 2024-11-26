@@ -23,6 +23,8 @@ class ReservationResponse(BaseModel):
     applicants: int
     status: ReservationStatus
 
+    model_config = {"from_attributes": True}
+
 
 class AvailableSlot(BaseModel):
     id: int
@@ -36,3 +38,9 @@ class AvailableSlot(BaseModel):
 
 class AvailableReservationResponse(BaseModel):
     available_slots: list[AvailableSlot]
+
+
+class ReservationListResponse(BaseModel):
+    reservations: list[ReservationResponse]
+
+    model_config = {"from_attributes": True}

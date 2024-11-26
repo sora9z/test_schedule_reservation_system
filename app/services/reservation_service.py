@@ -1,11 +1,10 @@
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import func
 from sqlalchemy.ext.asyncio import async_scoped_session
 
-from app.common.constants import ReservationStatus
-from app.common.exceptions import BadRequestError
+from app.common.constants import ReservationStatus, UserType
+from app.common.exceptions import AuthorizationError, BadRequestError
 from app.common.respository.reservation_repository import ReservationRepository
 from app.common.respository.slot_repository import SlotRepository
 from app.config import Config
@@ -13,6 +12,7 @@ from app.schemas.reservation_schema import (
     AvailableReservationResponse,
     AvailableSlot,
     ReservationCreateRequest,
+    ReservationListResponse,
     ReservationResponse,
 )
 
@@ -75,11 +75,10 @@ class ReservationService:
                     reservation_data = {
                         "user_id": input_data.user_id,
                         "exam_date": input_data.exam_date,
-                        "exam_start_date": exam_start_datetime,
-                        "exam_end_date": exam_end_datetime,
+                        "exam_start_time": input_data.exam_start_time,
+                        "exam_end_time": input_data.exam_end_time,
                         "applicants": input_data.applicants,
                         "status": ReservationStatus.PENDING,
-                        "time_range": func.tstzrange(exam_start_datetime, exam_end_datetime, "[]"),  # TODO 제거 예정
                     }
                     result = await self.repository.create_reservation_with_external_session(reservation_data, session)
 
@@ -87,8 +86,8 @@ class ReservationService:
                         id=result.id,
                         user_id=result.user_id,
                         exam_date=result.exam_date,
-                        exam_start_time=result.exam_start_date.time(),
-                        exam_end_time=result.exam_end_date.time(),
+                        exam_start_time=result.exam_start_time,
+                        exam_end_time=result.exam_end_time,
                         applicants=result.applicants,
                         status=result.status,
                     )
@@ -110,4 +109,26 @@ class ReservationService:
             )
         except Exception as e:
             logger.error(f"[service/reservation_service] get_available_reservation error: {e}")
+            raise e
+
+    async def get_reservations_by_user(self, user_id: int) -> ReservationListResponse:
+        try:
+            reservations = await self.repository.get_reservations_by_user_id(user_id)
+            return ReservationListResponse(
+                reservations=[ReservationResponse.model_validate(reservation) for reservation in reservations] or []
+            )
+        except Exception as e:
+            logger.error(f"[service/reservation_service] get_reservations_by_user error: {e}")
+            raise e
+
+    async def get_reservations_by_admin(self, user_type: UserType) -> ReservationListResponse:
+        try:
+            if user_type != UserType.ADMIN.value:
+                raise AuthorizationError("권한이 없습니다.")
+            reservations = await self.repository.get_reservations()
+            return ReservationListResponse(
+                reservations=[ReservationResponse.model_validate(reservation) for reservation in reservations] or []
+            )
+        except Exception as e:
+            logger.error(f"[service/reservation_service] get_reservations_by_admin error: {e}")
             raise e
