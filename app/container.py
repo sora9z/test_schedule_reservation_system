@@ -9,6 +9,7 @@ from app.common.auth.jwt_service import JWTService
 from app.common.auth.strategies.jwt_strategy import JWTAuthStrategy
 from app.common.database.database import Database
 from app.common.respository.reservation_repository import ReservationRepository
+from app.common.respository.slot_repository import SlotRepository
 from app.common.respository.user_repository import AuthRepository
 from app.config import Config
 from app.services.auth_service import AuthService
@@ -30,11 +31,13 @@ class Container(containers.DeclarativeContainer):
     # Repositories
     auth_repository = providers.Factory(AuthRepository, session_factory=db.provided.get_session)
     reservation_repository = providers.Factory(ReservationRepository, session_factory=db.provided.get_session)
+    slot_repository = providers.Factory(SlotRepository, session_factory=db.provided.get_session)
     # Services
     auth_service = providers.Factory(AuthService, repository=auth_repository, settings=config_instance)
     reservation_service = providers.Factory(
         ReservationService,
         repository=reservation_repository,
+        slot_repository=slot_repository,
         settings=config_instance,
         session_factory=db.provided.get_session,
     )

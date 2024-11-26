@@ -7,6 +7,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 from app.common.database.models.base import Base
 from app.common.database.models.reservation import Reservation  # noqa
+from app.common.database.models.slot import Slot  # noqa
 from app.common.database.models.user import User  # noqa
 from app.config import settings
 

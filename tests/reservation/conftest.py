@@ -15,6 +15,13 @@ def mock_reservation_repository(mocker):
 
 
 @pytest.fixture
+def mock_slot_repository(mocker):
+    repository = mocker.Mock()
+    repository.get_overlapping_slots_with_external_session = mocker.AsyncMock()
+    return repository
+
+
+@pytest.fixture
 def mock_settings(mocker):
     mock_settings = mocker.Mock(spec=Config)
     mock_settings.MAX_APPLICANTS = 50000
@@ -49,7 +56,15 @@ def mock_session_factory(mocker):
 
 
 @pytest.fixture
-def reservation_service(mock_reservation_repository, mock_settings, mock_session_factory):
+def reservation_service(
+    mock_reservation_repository,
+    mock_slot_repository,
+    mock_settings,
+    mock_session_factory,
+):
     return ReservationService(
-        repository=mock_reservation_repository, settings=mock_settings, session_factory=mock_session_factory
+        repository=mock_reservation_repository,
+        slot_repository=mock_slot_repository,
+        settings=mock_settings,
+        session_factory=mock_session_factory,
     )

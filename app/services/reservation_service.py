@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import async_scoped_session
 
 from app.common.constants import ReservationStatus
 from app.common.respository.reservation_repository import ReservationRepository
+from app.common.respository.slot_repository import SlotRepository
 from app.config import Config
 from app.schemas.reservation_schema import ReservationCreateRequest, ReservationResponse
 
@@ -14,9 +15,14 @@ logger = logging.getLogger(__name__)
 
 class ReservationService:
     def __init__(
-        self, repository: ReservationRepository, settings: Config, session_factory: async_scoped_session
+        self,
+        repository: ReservationRepository,
+        slot_repository: SlotRepository,
+        settings: Config,
+        session_factory: async_scoped_session,
     ) -> None:
         self.repository = repository
+        self.slot_repository = slot_repository
         self.settings = settings
         self.session_factory = session_factory
 
@@ -31,18 +37,18 @@ class ReservationService:
                         input_data.applicants,
                     )
 
-                    input_data.user_id = 1
+                    input_data.user_id = 1  # TODO: 임시 유저 아이디 설정
 
                     # 시험 시작 일시와 종료 일시 생성
                     exam_start_datetime = datetime.combine(input_data.exam_date, input_data.exam_start_time)
                     exam_end_datetime = datetime.combine(input_data.exam_date, input_data.exam_end_time)
 
-                    # 겹치는 예약의 총 응시자 수 계산
-                    overlapping_reservations = await self.repository.get_overlapping_reservations_with_external_session(
+                    # 겹치는 슬롯의 총 응시자 수 계산
+                    overlapping_slots = await self.slot_repository.get_overlapping_slots_with_external_session(
                         exam_start_datetime, exam_end_datetime, "[]", session
                     )
                     total_applicants = sum(
-                        overlapping_reservation.applicants for overlapping_reservation in overlapping_reservations
+                        overlapping_slot.remaining_capacity for overlapping_slot in overlapping_slots
                     )
 
                     # 총 응시자 수가 지원자 수보다 많으면 예약 생성 불가
@@ -56,7 +62,7 @@ class ReservationService:
                         "exam_end_date": exam_end_datetime,
                         "applicants": input_data.applicants,
                         "status": ReservationStatus.PENDING,
-                        "time_range": func.tstzrange(exam_start_datetime, exam_end_datetime, "[]"),
+                        "time_range": func.tstzrange(exam_start_datetime, exam_end_datetime, "[]"),  # TODO 제거 예정
                     }
                     result = await self.repository.create_reservation_with_external_session(reservation_data, session)
 
