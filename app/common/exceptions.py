@@ -31,3 +31,11 @@ class JwtError(Exception):
     def __init__(self, message: str):
         self.message = message
         self.status_code = status.HTTP_401_UNAUTHORIZED
+
+
+class BadRequestError(Exception):
+    """잘못된 요청 시 발생하는 예외"""
+
+    def __init__(self, message: str):
+        self.message = message
+        self.status_code = status.HTTP_400_BAD_REQUEST

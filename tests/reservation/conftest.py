@@ -18,6 +18,7 @@ def mock_reservation_repository(mocker):
 def mock_slot_repository(mocker):
     repository = mocker.Mock()
     repository.get_overlapping_slots_with_external_session = mocker.AsyncMock()
+    repository.get_available_slots = mocker.AsyncMock()
     return repository
 
 
