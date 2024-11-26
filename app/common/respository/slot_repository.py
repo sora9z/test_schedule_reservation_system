@@ -45,3 +45,12 @@ class SlotRepository:
         except Exception as e:
             logger.error(f"[repository/slot_repository] get_overlapping_slots_with_external_session error: {e}")
             raise e
+
+    async def get_available_slots(self, exam_date: datetime.date) -> List[Slot]:
+        try:
+            async with self.session_factory() as session:
+                slots = await session.scalars(select(Slot).where(Slot.date == exam_date, Slot.remaining_capacity > 0))
+                return slots
+        except Exception as e:
+            logger.error(f"[repository/slot_repository] get_available_slots error: {e}")
+            raise e

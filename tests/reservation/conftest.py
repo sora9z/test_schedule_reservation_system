@@ -9,7 +9,6 @@ from app.services.reservation_service import ReservationService
 @pytest.fixture
 def mock_reservation_repository(mocker):
     repository = mocker.Mock()
-    repository.get_overlapping_reservations_with_external_session = mocker.AsyncMock()
     repository.create_reservation_with_external_session = mocker.AsyncMock()
     return repository
 

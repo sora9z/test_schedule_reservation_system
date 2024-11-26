@@ -5,10 +5,16 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import async_scoped_session
 
 from app.common.constants import ReservationStatus
+from app.common.exceptions import BadRequestError, NotContentError
 from app.common.respository.reservation_repository import ReservationRepository
 from app.common.respository.slot_repository import SlotRepository
 from app.config import Config
-from app.schemas.reservation_schema import ReservationCreateRequest, ReservationResponse
+from app.schemas.reservation_schema import (
+    AvailableReservationResponse,
+    AvailableSlot,
+    ReservationCreateRequest,
+    ReservationResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +33,21 @@ class ReservationService:
         self.session_factory = session_factory
 
     async def create_reservation(self, input_data: ReservationCreateRequest) -> ReservationResponse:
+        def _validate_reservation(exam_date, exam_start_time, exam_end_time, applicants):
+            today = datetime.now().date()
+            if exam_date < today:
+                raise ValueError("시험 날짜는 오늘 이후로 설정해야 합니다.")
+            if exam_date < today + timedelta(days=3):
+                raise ValueError("시험 날짜는 예약 신청일 기준 최소 3일 전이어야 합니다.")
+            if exam_start_time >= exam_end_time:
+                raise ValueError("시험 시작 시간은 시험 종료 시간보다 이전이어야 합니다.")
+            if applicants < 1 or applicants > self.settings.MAX_APPLICANTS:
+                raise ValueError(f"응시자 수는 1 이상 {self.settings.MAX_APPLICANTS} 이하로 설정해야 합니다.")
+
         async with self.session_factory() as session:
             async with session.begin():
                 try:
-                    self._validate_reservation(
+                    _validate_reservation(
                         input_data.exam_date,
                         input_data.exam_start_time,
                         input_data.exam_end_time,
@@ -79,13 +96,21 @@ class ReservationService:
                     logger.error(f"[service/reservation_service] create_reservation error: {e}")
                     raise e
 
-    def _validate_reservation(self, exam_date, exam_start_time, exam_end_time, applicants):
-        today = datetime.now().date()
-        if exam_date < today:
-            raise ValueError("시험 날짜는 오늘 이후로 설정해야 합니다.")
-        if exam_date < today + timedelta(days=3):
-            raise ValueError("시험 날짜는 예약 신청일 기준 최소 3일 전이어야 합니다.")
-        if exam_start_time >= exam_end_time:
-            raise ValueError("시험 시작 시간은 시험 종료 시간보다 이전이어야 합니다.")
-        if applicants < 1 or applicants > self.settings.MAX_APPLICANTS:
-            raise ValueError(f"응시자 수는 1 이상 {self.settings.MAX_APPLICANTS} 이하로 설정해야 합니다.")
+    async def get_available_reservation(self, exam_date: datetime.date) -> AvailableReservationResponse:
+        try:
+            # 입력값 검증
+            if exam_date < datetime.now().date() + timedelta(days=3):
+                raise BadRequestError("예약 가능일은 시험일 3일 전부터 조회할 수 있습니다.")
+
+            # 예약 가능한 시간대 조회
+            available_slots = await self.slot_repository.get_available_slots(exam_date)
+
+            if not available_slots or len(available_slots) == 0:
+                raise NotContentError("예약 가능한 시간대가 없습니다.")
+
+            return AvailableReservationResponse(
+                available_slots=[AvailableSlot.model_validate(slot) for slot in available_slots]
+            )
+        except Exception as e:
+            logger.error(f"[service/reservation_service] get_available_reservation error: {e}")
+            raise e

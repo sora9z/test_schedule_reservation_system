@@ -39,3 +39,11 @@ class BadRequestError(Exception):
     def __init__(self, message: str):
         self.message = message
         self.status_code = status.HTTP_400_BAD_REQUEST
+
+
+class NotContentError(Exception):
+    """데이터가 없을 때 발생하는 예외"""
+
+    def __init__(self, message: str):
+        self.message = message
+        self.status_code = status.HTTP_204_NO_CONTENT

@@ -22,3 +22,17 @@ class ReservationResponse(BaseModel):
     exam_end_time: time
     applicants: int
     status: ReservationStatus
+
+
+class AvailableSlot(BaseModel):
+    id: int
+    date: date
+    start_time: time
+    end_time: time
+    remaining_capacity: int
+
+    model_config = {"from_attributes": True}
+
+
+class AvailableReservationResponse(BaseModel):
+    available_slots: list[AvailableSlot]
