@@ -19,7 +19,7 @@ async def test_confirm_reservations_success(
     """
     # given
     reservation_id = 1
-    user_type = UserType.ADMIN.value
+    user_type = UserType.ADMIN
 
     exam_date = datetime.now() + timedelta(days=5)
     start_time = time(14, 0)
@@ -67,7 +67,7 @@ async def test_confirm_reservations_fail_reservation_not_found(mock_reservation_
     """
     # given
     reservation_id = 1
-    user_type = UserType.ADMIN.value
+    user_type = UserType.ADMIN
 
     mock_reservation_repository.get_reservation_by_id_with_external_session.return_value = None
 
@@ -90,7 +90,7 @@ async def test_confirm_reservations_fail_reservation_already_confirmed(
     """
     # given
     reservation_id = 1
-    user_type = UserType.ADMIN.value
+    user_type = UserType.ADMIN
 
     mock_reservation_repository.get_reservation_by_id_with_external_session.return_value = mock_reservation(
         reservation_id,
@@ -121,7 +121,7 @@ async def test_confirm_reservations_fail_reservation_exam_date_is_before_today(
     """
     # given
     reservation_id = 1
-    user_type = UserType.ADMIN.value
+    user_type = UserType.ADMIN
 
     mock_reservation_repository.get_reservation_by_id_with_external_session.return_value = mock_reservation(
         reservation_id,
@@ -149,11 +149,11 @@ async def test_confirm_reservations_fail_slot_not_found(
     reservation_service,
 ):
     """
-    [Reservation] 예약 가능한 슬롯이 없으면 에러를 반환한다(NotFoundError)
+    [Reservation] 예약 가능한 슬롯이 없으면 에러를 반환한다(ValueError)
     """
     # given
     reservation_id = 1
-    user_type = UserType.ADMIN.value
+    user_type = UserType.ADMIN
 
     mock_reservation_repository.get_reservation_by_id_with_external_session.return_value = mock_reservation(
         reservation_id,
@@ -168,11 +168,11 @@ async def test_confirm_reservations_fail_slot_not_found(
     mock_slot_repository.get_overlapping_slots_with_external_session.return_value = []
 
     # when
-    with pytest.raises(NotFoundError) as e:
+    with pytest.raises(ValueError) as e:
         await reservation_service.confirm_reservations(reservation_id=reservation_id, user_type=user_type)
 
     # then
-    assert isinstance(e.value, NotFoundError)
+    assert isinstance(e.value, ValueError)
 
 
 @pytest.mark.asyncio
@@ -184,11 +184,11 @@ async def test_confirm_reservations_fail_slot_remaining_applicants_not_enough(
     mock_reservation,
 ):
     """
-    [Reservation] 예약 가능한 슬롯중 하나라도 남은인원(remaining_applicants)이 예약하려는 인원수보다 적으면 에러를 반환한다(BadRequestError)
+    [Reservation] 예약 가능한 슬롯중 하나라도 남은인원(remaining_applicants)이 예약하려는 인원수보다 적으면 에러를 반환한다(ValueError)
     """
     # given
     reservation_id = 1
-    user_type = UserType.ADMIN.value
+    user_type = UserType.ADMIN
 
     mock_reservation_repository.get_reservation_by_id_with_external_session.return_value = mock_reservation(
         reservation_id,
@@ -217,8 +217,8 @@ async def test_confirm_reservations_fail_slot_remaining_applicants_not_enough(
     ]
 
     # when
-    with pytest.raises(BadRequestError) as e:
+    with pytest.raises(ValueError) as e:
         await reservation_service.confirm_reservations(reservation_id=reservation_id, user_type=user_type)
 
         # then
-    assert isinstance(e.value, BadRequestError)
+    assert isinstance(e.value, ValueError)

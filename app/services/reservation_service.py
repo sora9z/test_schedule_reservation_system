@@ -39,11 +39,8 @@ class ReservationService:
 
     async def get_available_reservation(self, exam_date: datetime.date) -> AvailableReservationResponse:
         try:
-            # 입력값 검증
-            if exam_date < datetime.now().date() + timedelta(days=3):
-                raise BadRequestError("예약 가능일은 시험일 3일 전부터 조회할 수 있습니다.")
+            await self._validate_reservation_input(exam_date, None, None, None)
 
-            # 예약 가능한 시간대 조회
             available_slots = await self.slot_repository.get_available_slots(exam_date)
 
             return AvailableReservationResponse(
@@ -65,9 +62,10 @@ class ReservationService:
 
     async def get_reservations_by_admin(self, user_type: UserType) -> ReservationListResponse:
         try:
-            if user_type != UserType.ADMIN.value:
-                raise AuthorizationError("권한이 없습니다.")
+            self._validate_admin(user_type)
+
             reservations = await self.repository.get_reservations()
+
             return ReservationListResponse(
                 reservations=[ReservationResponse.model_validate(reservation) for reservation in reservations] or []
             )
@@ -84,7 +82,6 @@ class ReservationService:
                         input_data.exam_start_time,
                         input_data.exam_end_time,
                         input_data.applicants,
-                        session,
                     )
                     await self._fetch_and_validate_slots(
                         input_data.exam_date,
@@ -111,8 +108,7 @@ class ReservationService:
 
     async def confirm_reservations(self, reservation_id: int, user_type: UserType) -> ConfirmReservationResponse:
         try:
-            if user_type != UserType.ADMIN.value:
-                raise AuthorizationError("권한이 없습니다.")
+            self._validate_admin(user_type)
 
             async with self.session_factory() as session:
                 async with session.begin():
@@ -140,17 +136,14 @@ class ReservationService:
             async with self.session_factory() as session:
                 async with session.begin():
                     reservation = await self._fetch_and_validate_reservation(session, reservation_id)
-
-                    if user_type != UserType.ADMIN.value:
-                        if reservation.user_id != user_id:
-                            raise AuthorizationError("권한이 없습니다.")
+                    if user_type != UserType.ADMIN:
+                        self._validate_user_reservation(reservation.user_id, user_id)
 
                     await self._validate_reservation_input(
                         input_data.exam_date or reservation.exam_date,
                         input_data.exam_start_time or reservation.exam_start_time,
                         input_data.exam_end_time or reservation.exam_end_time,
                         input_data.applicants or None,
-                        session,
                     )
 
                     if input_data.exam_date or input_data.exam_start_time or input_data.exam_end_time:
@@ -178,13 +171,9 @@ class ReservationService:
         try:
             async with self.session_factory() as session:
                 async with session.begin():
-                    reservation = await self.repository.get_reservation_by_id_with_external_session(
-                        reservation_id, session
-                    )
-                    if not reservation:
-                        raise NotFoundError("예약을 찾을 수 없습니다.")
-                    if user_type == UserType.USER.value and reservation.user_id != user_id:
-                        raise AuthorizationError("권한이 없습니다.")
+                    reservation = await self._fetch_and_validate_reservation(session, reservation_id, isDelete=True)
+                    if user_type != UserType.ADMIN:
+                        self._validate_user_reservation(reservation.user_id, user_id)
 
                     if reservation.status == ReservationStatus.CONFIRMED:
                         exam_start_datetime = datetime.combine(reservation.exam_date, reservation.exam_start_time)
@@ -226,23 +215,17 @@ class ReservationService:
             raise ValueError("겹치는 슬롯이 없습니다.")
         return overlapping_slots
 
-    async def _fetch_and_validate_reservation(self, session, reservation_id):
+    async def _fetch_and_validate_reservation(self, session, reservation_id, isDelete=False):
         reservation = await self.repository.get_reservation_by_id_with_external_session(reservation_id, session)
         if not reservation:
             raise NotFoundError("예약을 찾을 수 없습니다.")
-        if (reservation.status != ReservationStatus.PENDING) or (
+        if (not isDelete and (reservation.status != ReservationStatus.PENDING)) or (
             datetime.combine(reservation.exam_date, reservation.exam_start_time) < datetime.now()
         ):
             raise BadRequestError("수정 가능한 예약이 아닙니다.")
         return reservation
 
-    async def _validate_reservation_input(self, exam_date, exam_start_time, exam_end_time, applicants, session):
-        """
-        [예약 생성 및 업데이트 시 검증 로직]
-        - 예약 날짜 및 시간 검증
-        - 응시자 수 검증
-        """
-
+    async def _validate_reservation_input(self, exam_date, exam_start_time, exam_end_time, applicants):
         today = datetime.now().date()
         if exam_date and (exam_date < today or exam_date < today + timedelta(days=3)):
             raise ValueError("시험 날짜는 예약 신청일 기준 최소 3일 전이어야 합니다.")
@@ -250,3 +233,11 @@ class ReservationService:
             raise ValueError("시험 시작 시간은 시험 종료 시간보다 이전이어야 합니다.")
         if applicants and (applicants < 1 or applicants > self.settings.MAX_APPLICANTS):
             raise ValueError(f"응시자 수는 1 이상 {self.settings.MAX_APPLICANTS} 이하로 설정해야 합니다.")
+
+    def _validate_admin(self, user_type):
+        if user_type and user_type != UserType.ADMIN:
+            raise AuthorizationError("권한이 없습니다.")
+
+    def _validate_user_reservation(self, reservation_user_id, user_id):
+        if reservation_user_id and user_id and reservation_user_id != user_id:
+            raise AuthorizationError("권한이 없습니다.")

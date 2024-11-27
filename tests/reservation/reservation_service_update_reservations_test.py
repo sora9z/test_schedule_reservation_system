@@ -55,7 +55,7 @@ async def test_update_reservations_success_by_admin(
     mock_reservation_repository.update_reservation_with_external_session.return_value = None
     # when
     result = await reservation_service.update_reservation(
-        input_data, reservation_id=1, user_id=1, user_type=UserType.USER
+        input_data, reservation_id=1, user_id=1, user_type=UserType.ADMIN.value
     )
     # then
     mock_reservation_repository.update_reservation_with_external_session.assert_called_once()

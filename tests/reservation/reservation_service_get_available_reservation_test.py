@@ -2,8 +2,6 @@ from datetime import date, time, timedelta
 
 import pytest
 
-from app.common.exceptions import BadRequestError
-
 
 @pytest.mark.asyncio
 async def test_get_available_reservation_success(mock_slot_repository, reservation_service):
@@ -45,18 +43,17 @@ async def test_get_available_reservation_success(mock_slot_repository, reservati
 
 
 @pytest.mark.asyncio
-async def test_get_available_reservation_fail_by_before_3_days(mock_slot_repository, reservation_service):
+async def test_get_available_reservation_fail_by_before_3_days(reservation_service):
     """
-    [Reservation] 조회일이 3일 이전이면 BadRequestException 예외가 발생한다.
+    [Reservation] 조회일이 3일 이전이면 ValueError 예외가 발생한다.
     """
     # given
     exam_date = date.today() - timedelta(days=3)
     # when
-    with pytest.raises(BadRequestError) as e:
+    with pytest.raises(ValueError) as e:
         await reservation_service.get_available_reservation(exam_date)
     # then
-    assert e.value.status_code == 400
-    assert isinstance(e.value, BadRequestError)
+    assert isinstance(e.value, ValueError)
 
 
 @pytest.mark.asyncio
