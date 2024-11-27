@@ -1,12 +1,10 @@
 import logging
 from datetime import datetime, timedelta
-from typing import List
 
 from sqlalchemy.ext.asyncio import async_scoped_session
 
 from app.common.constants import ReservationStatus, UserType
 from app.common.database.models.reservation import Reservation
-from app.common.database.models.slot import Slot
 from app.common.exceptions import AuthorizationError, BadRequestError, NotFoundError
 from app.common.respository.reservation_repository import ReservationRepository
 from app.common.respository.slot_repository import SlotRepository
@@ -18,6 +16,8 @@ from app.schemas.reservation_schema import (
     ReservationCreateRequest,
     ReservationListResponse,
     ReservationResponse,
+    ReservationUpdateRequest,
+    ReservationUpdateResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,34 +35,6 @@ class ReservationService:
         self.slot_repository = slot_repository
         self.settings = settings
         self.session_factory = session_factory
-
-    async def create_reservation(self, input_data: ReservationCreateRequest, user_id: int) -> ReservationResponse:
-
-        async with self.session_factory() as session:
-            async with session.begin():
-                try:
-                    await self._validation_reservation(
-                        input_data.exam_date,
-                        input_data.exam_start_time,
-                        input_data.exam_end_time,
-                        input_data.applicants,
-                        session,
-                    )
-
-                    reservation_data = Reservation(
-                        user_id=user_id,
-                        exam_date=input_data.exam_date,
-                        exam_start_time=input_data.exam_start_time,
-                        exam_end_time=input_data.exam_end_time,
-                        applicants=input_data.applicants,
-                        status=ReservationStatus.PENDING,
-                    )
-                    result = await self.repository.create_reservation_with_external_session(reservation_data, session)
-
-                    return ReservationResponse.model_validate(result)
-                except Exception as e:
-                    logger.error(f"[service/reservation_service] create_reservation error: {e}")
-                    raise e
 
     async def get_available_reservation(self, exam_date: datetime.date) -> AvailableReservationResponse:
         try:
@@ -102,6 +74,40 @@ class ReservationService:
             logger.error(f"[service/reservation_service] get_reservations_by_admin error: {e}")
             raise e
 
+    async def create_reservation(self, input_data: ReservationCreateRequest, user_id: int) -> ReservationResponse:
+        try:
+            async with self.session_factory() as session:
+                async with session.begin():
+                    await self._validate_reservation_input(
+                        input_data.exam_date,
+                        input_data.exam_start_time,
+                        input_data.exam_end_time,
+                        input_data.applicants,
+                        session,
+                    )
+                    await self._fetch_and_validate_slots(
+                        input_data.exam_date,
+                        input_data.exam_start_time,
+                        input_data.exam_end_time,
+                        input_data.applicants,
+                        session,
+                    )
+
+                    reservation_data = Reservation(
+                        user_id=user_id,
+                        exam_date=input_data.exam_date,
+                        exam_start_time=input_data.exam_start_time,
+                        exam_end_time=input_data.exam_end_time,
+                        applicants=input_data.applicants,
+                        status=ReservationStatus.PENDING,
+                    )
+                    result = await self.repository.create_reservation_with_external_session(reservation_data, session)
+
+                    return ReservationResponse.model_validate(result)
+        except Exception as e:
+            logger.error(f"[service/reservation_service] create_reservation error: {e}")
+            raise e
+
     async def confirm_reservations(self, reservation_id: int, user_type: UserType) -> ConfirmReservationResponse:
         try:
             if user_type != UserType.ADMIN.value:
@@ -110,13 +116,61 @@ class ReservationService:
             async with self.session_factory() as session:
                 async with session.begin():
                     reservation = await self._fetch_and_validate_reservation(session, reservation_id)
-                    overlapping_slots = await self._fetch_and_validate_slots(session, reservation)
+                    overlapping_slots = await self._fetch_and_validate_slots(
+                        reservation.exam_date,
+                        reservation.exam_start_time,
+                        reservation.exam_end_time,
+                        reservation.applicants,
+                        session,
+                    )
                     await self._update_slots_and_confirm_reservation(session, reservation, overlapping_slots)
                     await session.commit()
                 return ConfirmReservationResponse(is_success=True)
 
         except Exception as e:
             logger.error(f"[service/reservation_service] confirm_reservations error: {e}")
+            raise e
+
+    async def update_reservation(
+        self, input_data: ReservationUpdateRequest, reservation_id: int, user_id: int, user_type: UserType
+    ) -> ReservationUpdateResponse:
+
+        try:
+            async with self.session_factory() as session:
+                async with session.begin():
+                    reservation = await self._fetch_and_validate_reservation(session, reservation_id)
+
+                    if user_type != UserType.ADMIN.value:
+                        if reservation.user_id != user_id:
+                            raise AuthorizationError("권한이 없습니다.")
+
+                    await self._validate_reservation_input(
+                        input_data.exam_date or reservation.exam_date,
+                        input_data.exam_start_time or reservation.exam_start_time,
+                        input_data.exam_end_time or reservation.exam_end_time,
+                        input_data.applicants or None,
+                        session,
+                    )
+
+                    if input_data.exam_date or input_data.exam_start_time or input_data.exam_end_time:
+                        await self._fetch_and_validate_slots(
+                            input_data.exam_date or reservation.exam_date,
+                            input_data.exam_start_time or reservation.exam_start_time,
+                            input_data.exam_end_time or reservation.exam_end_time,
+                            input_data.applicants or reservation.applicants,
+                            session,
+                        )
+
+                    reservation.exam_date = input_data.exam_date or reservation.exam_date
+                    reservation.exam_start_time = input_data.exam_start_time or reservation.exam_start_time
+                    reservation.exam_end_time = input_data.exam_end_time or reservation.exam_end_time
+                    reservation.applicants = input_data.applicants or reservation.applicants
+
+                    await self.repository.update_reservation_with_external_session(reservation, session)
+                    await session.commit()
+                return ReservationUpdateResponse(is_success=True)
+        except Exception as e:
+            logger.error(f"[service/reservation_service] update_reservation error: {e}")
             raise e
 
     async def _update_slots_and_confirm_reservation(self, session, reservation, overlapping_slots):
@@ -127,54 +181,7 @@ class ReservationService:
         reservation.slots = overlapping_slots
         await self.repository.update_reservation_with_external_session(reservation, session)
 
-    async def _fetch_and_validate_slots(self, session, reservation):
-        exam_start_datetime = datetime.combine(reservation.exam_date, reservation.exam_start_time)
-        exam_end_datetime = datetime.combine(reservation.exam_date, reservation.exam_end_time)
-
-        overlapping_slots = await self.slot_repository.get_overlapping_slots_with_external_session(
-            exam_start_datetime, exam_end_datetime, "[]", session
-        )
-        if not overlapping_slots or len(overlapping_slots) == 0:
-            raise NotFoundError("슬롯을 찾을 수 없습니다.")
-
-            # 각 슬롯의 남은 인원수가 하나라도 예약하려는 인원수보다 적으면 안된다.
-        if not self._check_remaining_capacity(overlapping_slots, reservation.applicants):
-            raise BadRequestError("예약 불가능한 시간대입니다.")
-        return overlapping_slots
-
-    async def _fetch_and_validate_reservation(self, session, reservation_id):
-        reservation = await self.repository.get_reservation_by_id_with_external_session(reservation_id, session)
-        if not reservation:
-            raise NotFoundError("예약을 찾을 수 없습니다.")
-
-        if (reservation.status != ReservationStatus.PENDING) or (
-            datetime.combine(reservation.exam_date, reservation.exam_start_time) < datetime.now()
-        ):
-            raise BadRequestError("확정 가능한 예약이 아닙니다.")
-        return reservation
-
-    def _check_remaining_capacity(self, overlapping_slots: List[Slot], reservation_applicants: int) -> None:
-        for slot in overlapping_slots:
-            if slot.remaining_capacity < reservation_applicants:
-                return False
-        return True
-
-    async def _validation_reservation(self, exam_date, exam_start_time, exam_end_time, applicants, session):
-        """
-        [예약 생성 및 업데이트 시 검증 로직]
-        - 예약 날짜 및 시간 검증
-        - 응시자 수 검증
-        - 예약 가능 유무 검증
-        """
-
-        today = datetime.now().date()
-        if exam_date < today or exam_date < today + timedelta(days=3):
-            raise ValueError("시험 날짜는 예약 신청일 기준 최소 3일 전이어야 합니다.")
-        if exam_start_time >= exam_end_time:
-            raise ValueError("시험 시작 시간은 시험 종료 시간보다 이전이어야 합니다.")
-        if applicants < 1 or applicants > self.settings.MAX_APPLICANTS:
-            raise ValueError(f"응시자 수는 1 이상 {self.settings.MAX_APPLICANTS} 이하로 설정해야 합니다.")
-
+    async def _fetch_and_validate_slots(self, exam_date, exam_start_time, exam_end_time, applicants, session):
         exam_start_datetime = datetime.combine(exam_date, exam_start_time)
         exam_end_datetime = datetime.combine(exam_date, exam_end_time)
 
@@ -188,3 +195,29 @@ class ReservationService:
                 raise ValueError("예약 불가능한 시간대입니다.")
         else:
             raise ValueError("겹치는 슬롯이 없습니다.")
+        return overlapping_slots
+
+    async def _fetch_and_validate_reservation(self, session, reservation_id):
+        reservation = await self.repository.get_reservation_by_id_with_external_session(reservation_id, session)
+        if not reservation:
+            raise NotFoundError("예약을 찾을 수 없습니다.")
+        if (reservation.status != ReservationStatus.PENDING) or (
+            datetime.combine(reservation.exam_date, reservation.exam_start_time) < datetime.now()
+        ):
+            raise BadRequestError("수정 가능한 예약이 아닙니다.")
+        return reservation
+
+    async def _validate_reservation_input(self, exam_date, exam_start_time, exam_end_time, applicants, session):
+        """
+        [예약 생성 및 업데이트 시 검증 로직]
+        - 예약 날짜 및 시간 검증
+        - 응시자 수 검증
+        """
+
+        today = datetime.now().date()
+        if exam_date and (exam_date < today or exam_date < today + timedelta(days=3)):
+            raise ValueError("시험 날짜는 예약 신청일 기준 최소 3일 전이어야 합니다.")
+        if exam_start_time and exam_end_time and (exam_start_time >= exam_end_time):
+            raise ValueError("시험 시작 시간은 시험 종료 시간보다 이전이어야 합니다.")
+        if applicants and (applicants < 1 or applicants > self.settings.MAX_APPLICANTS):
+            raise ValueError(f"응시자 수는 1 이상 {self.settings.MAX_APPLICANTS} 이하로 설정해야 합니다.")

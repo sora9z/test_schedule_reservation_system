@@ -80,7 +80,7 @@ async def test_get_reservations_by_admin_success(mock_reservation_repository, re
     ]
 
     # when
-    result = await reservation_service.get_reservations_by_admin(user_type=UserType.ADMIN)
+    result = await reservation_service.get_reservations_by_admin(user_type=UserType.ADMIN.value)
 
     # then
     assert len(result.reservations) == 2
@@ -124,7 +124,7 @@ async def test_get_reservations_by_admin_fail(mock_reservation_repository, reser
 
     # when
     with pytest.raises(AuthorizationError) as e:
-        await reservation_service.get_reservations_by_admin(user_type=UserType.USER)
+        await reservation_service.get_reservations_by_admin(user_type=UserType.USER.value)
 
     # then
     assert isinstance(e.value, AuthorizationError)
@@ -139,7 +139,7 @@ async def test_get_reservations_by_admin_success_empty(mock_reservation_reposito
     mock_reservation_repository.get_reservations.return_value = []
 
     # when
-    result = await reservation_service.get_reservations_by_admin(user_type=UserType.ADMIN)
+    result = await reservation_service.get_reservations_by_admin(user_type=UserType.ADMIN.value)
 
     # then
     assert result.reservations == []

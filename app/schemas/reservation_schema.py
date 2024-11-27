@@ -1,4 +1,5 @@
 from datetime import date, time
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -46,3 +47,14 @@ class ReservationListResponse(BaseModel):
 
 class ConfirmReservationResponse(BaseModel):
     is_success: bool
+
+
+class ReservationUpdateRequest(BaseModel):
+    exam_date: Optional[date] = None
+    exam_start_time: Optional[time] = None
+    exam_end_time: Optional[time] = None
+    applicants: Optional[int] = None
+
+
+class ReservationUpdateResponse(ConfirmReservationResponse):
+    pass
