@@ -8,6 +8,7 @@ from app.container import Container
 app_container_modules = [
     "app.api.routes.v1.user_api",
     "app.api.routes.v1.reservation_api",
+    "app.api.routes.v1.admin_api",
 ]
 
 

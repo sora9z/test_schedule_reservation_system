@@ -16,7 +16,7 @@ class Slot(Base):
     time_range = Column(TSTZRANGE, nullable=False)
     remaining_capacity = Column(Integer, nullable=False, default=settings.MAX_APPLICANTS)
 
-    reservations = relationship("Reservation", secondary="reservation_slots", back_populates="slots")
+    reservations = relationship("Reservation", secondary="reservation_slots", back_populates="slots", lazy="selectin")
 
     __table_args__ = (
         UniqueConstraint("date", "start_time", "end_time", name="unique_slot"),

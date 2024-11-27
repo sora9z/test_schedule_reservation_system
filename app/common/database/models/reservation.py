@@ -27,7 +27,7 @@ class Reservation(Base):
     status = Column(ENUM(ReservationStatus, name="reservation_status"), default=ReservationStatus.PENDING.value)
 
     user = relationship("User", back_populates="reservations")
-    slots = relationship("Slot", secondary=reservation_slots, back_populates="reservations")
+    slots = relationship("Slot", secondary=reservation_slots, back_populates="reservations", lazy="selectin")
 
     __table_args__ = (
         Index("idx_reservations_exam_date", "exam_date"),
