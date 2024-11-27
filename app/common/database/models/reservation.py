@@ -9,8 +9,8 @@ from app.common.database.models.base import Base
 reservation_slots = Table(
     "reservation_slots",
     Base.metadata,
-    Column("reservation_id", Integer, ForeignKey("reservations.id"), primary_key=True),
-    Column("slot_id", Integer, ForeignKey("slots.id"), primary_key=True),
+    Column("reservation_id", Integer, ForeignKey("reservations.id", ondelete="CASCADE"), primary_key=True),
+    Column("slot_id", Integer, ForeignKey("slots.id", ondelete="CASCADE"), primary_key=True),
 )
 # TODO 사용하지 않는 컬럼 제거
 

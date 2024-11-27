@@ -13,6 +13,7 @@ from app.schemas.reservation_schema import (
     AvailableReservationResponse,
     AvailableSlot,
     ConfirmReservationResponse,
+    DeleteReservationResponse,
     ReservationCreateRequest,
     ReservationListResponse,
     ReservationResponse,
@@ -171,6 +172,34 @@ class ReservationService:
                 return ReservationUpdateResponse(is_success=True)
         except Exception as e:
             logger.error(f"[service/reservation_service] update_reservation error: {e}")
+            raise e
+
+    async def delete_reservation(self, reservation_id: int, user_id: int, user_type: UserType):
+        try:
+            async with self.session_factory() as session:
+                async with session.begin():
+                    reservation = await self.repository.get_reservation_by_id_with_external_session(
+                        reservation_id, session
+                    )
+                    if not reservation:
+                        raise NotFoundError("예약을 찾을 수 없습니다.")
+                    if user_type == UserType.USER.value and reservation.user_id != user_id:
+                        raise AuthorizationError("권한이 없습니다.")
+
+                    if reservation.status == ReservationStatus.CONFIRMED:
+                        exam_start_datetime = datetime.combine(reservation.exam_date, reservation.exam_start_time)
+                        exam_end_datetime = datetime.combine(reservation.exam_date, reservation.exam_end_time)
+                        overlapping_slots = await self.slot_repository.get_overlapping_slots_with_external_session(
+                            exam_start_datetime, exam_end_datetime, "[]", session
+                        )
+                        for slot in overlapping_slots:
+                            slot.remaining_capacity += reservation.applicants
+                            session.add(slot)
+                    await self.repository.delete_reservation_with_external_session(reservation.id, session)
+                    await session.commit()
+                return DeleteReservationResponse(is_success=True)
+        except Exception as e:
+            logger.error(f"[service/reservation_service] delete_reservation error: {e}")
             raise e
 
     async def _update_slots_and_confirm_reservation(self, session, reservation, overlapping_slots):

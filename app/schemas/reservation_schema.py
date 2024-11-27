@@ -58,3 +58,7 @@ class ReservationUpdateRequest(BaseModel):
 
 class ReservationUpdateResponse(ConfirmReservationResponse):
     pass
+
+
+class DeleteReservationResponse(ConfirmReservationResponse):
+    pass

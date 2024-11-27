@@ -8,6 +8,7 @@ from app.common.auth.get_current_user import get_current_user
 from app.container import Container
 from app.schemas.reservation_schema import (
     AvailableReservationResponse,
+    DeleteReservationResponse,
     ReservationCreateRequest,
     ReservationListResponse,
     ReservationResponse,
@@ -95,3 +96,17 @@ async def update_reservation(
     except Exception as e:
         logger.error(f"[api/reservation_api] update_reservation error: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.delete(
+    "/{reservation_id}",
+)
+@inject
+async def delete_reservation(
+    reservation_id: str,
+    user_info: dict = Depends(get_current_user),
+    reservation_service: ReservationService = Depends(Provide[Container.reservation_service]),
+) -> DeleteReservationResponse:
+    user_id = user_info["user_id"]
+    user_type = user_info["type"]
+    return await reservation_service.delete_reservation(int(reservation_id), user_id, user_type)

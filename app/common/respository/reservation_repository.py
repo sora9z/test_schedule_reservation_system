@@ -49,3 +49,10 @@ class ReservationRepository:
         session.add(reservation)
         await session.flush()
         return reservation
+
+    async def delete_reservation_with_external_session(self, reservation_id: int, session: AsyncSession):
+        query = await session.execute(select(Reservation).where(Reservation.id == reservation_id))
+        reservation = query.scalar_one_or_none()
+        if reservation:
+            await session.delete(reservation)
+            await session.flush()

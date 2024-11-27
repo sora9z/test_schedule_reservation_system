@@ -17,6 +17,7 @@ def mock_reservation_repository(mocker):
     repository.get_reservations = mocker.AsyncMock()
     repository.get_reservation_by_id_with_external_session = mocker.AsyncMock()
     repository.update_reservation_with_external_session = mocker.AsyncMock()
+    repository.delete_reservation_with_external_session = mocker.AsyncMock()
     return repository
 
 
