@@ -44,3 +44,7 @@ class ReservationListResponse(BaseModel):
     reservations: list[ReservationResponse]
 
     model_config = {"from_attributes": True}
+
+
+class ConfirmReservationResponse(BaseModel):
+    is_success: bool

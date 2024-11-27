@@ -2,6 +2,8 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.database.models.reservation import Reservation
+from app.common.database.models.slot import Slot
 from app.config import Config
 from app.services.reservation_service import ReservationService
 
@@ -12,6 +14,8 @@ def mock_reservation_repository(mocker):
     repository.create_reservation_with_external_session = mocker.AsyncMock()
     repository.get_reservations_by_user_id = mocker.AsyncMock()
     repository.get_reservations = mocker.AsyncMock()
+    repository.get_reservation_by_id_with_external_session = mocker.AsyncMock()
+    repository.update_reservation_with_external_session = mocker.AsyncMock()
     return repository
 
 
@@ -24,6 +28,37 @@ def mock_slot_repository(mocker):
 
 
 @pytest.fixture
+def mock_reservation(mocker):
+    def _mock_reservation(reservation_id, user_id, exam_date, start_time, end_time, applicants, status):
+        mock_res = mocker.AsyncMock(spec=Reservation)
+        mock_res.id = reservation_id
+        mock_res.user_id = user_id
+        mock_res.exam_date = exam_date
+        mock_res.exam_start_time = start_time
+        mock_res.exam_end_time = end_time
+        mock_res.applicants = applicants
+        mock_res.status = status
+        mock_res.slots = []
+        return mock_res
+
+    return _mock_reservation
+
+
+@pytest.fixture
+def mock_slot(mocker):
+    def _mock_slot(slot_id, exam_date, start_time, end_time, remaining_capacity):
+        mock_slt = mocker.AsyncMock(spec=Slot)
+        mock_slt.id = slot_id
+        mock_slt.exam_date = exam_date
+        mock_slt.exam_start_time = start_time
+        mock_slt.exam_end_time = end_time
+        mock_slt.remaining_capacity = remaining_capacity
+        return mock_slt
+
+    return _mock_slot
+
+
+@pytest.fixture
 def mock_settings(mocker):
     mock_settings = mocker.Mock(spec=Config)
     mock_settings.MAX_APPLICANTS = 50000
@@ -33,6 +68,8 @@ def mock_settings(mocker):
 @pytest.fixture
 def mock_session_factory(mocker):
     mock_session = mocker.AsyncMock(spec=AsyncSession)
+    mock_session.add = mocker.AsyncMock()
+    mock_session.commit = mocker.AsyncMock()
 
     class MockTransaction:
         async def __aenter__(self):

@@ -8,6 +8,8 @@ from app.common.database.models.reservation import Reservation
 
 logger = logging.getLogger(__name__)
 
+# TODO 레포지토리 구조화 하기
+
 
 class ReservationRepository:
     def __init__(self, session_factory: async_scoped_session) -> None:
@@ -41,3 +43,14 @@ class ReservationRepository:
             query = select(Reservation)
             reservations = await session.execute(query)
             return reservations.scalars().all()
+
+    async def get_reservation_by_id_with_external_session(
+        self, reservation_id: int, session: AsyncSession
+    ) -> Reservation:
+        query = await session.execute(select(Reservation).where(Reservation.id == reservation_id))
+        return query.scalar_one_or_none()
+
+    async def update_reservation_with_external_session(self, reservation: Reservation, session: AsyncSession):
+        session.add(reservation)
+        await session.flush()
+        return reservation

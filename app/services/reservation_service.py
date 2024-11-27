@@ -1,16 +1,19 @@
 import logging
 from datetime import datetime, timedelta
+from typing import List
 
 from sqlalchemy.ext.asyncio import async_scoped_session
 
 from app.common.constants import ReservationStatus, UserType
-from app.common.exceptions import AuthorizationError, BadRequestError
+from app.common.database.models.slot import Slot
+from app.common.exceptions import AuthorizationError, BadRequestError, NotFoundError
 from app.common.respository.reservation_repository import ReservationRepository
 from app.common.respository.slot_repository import SlotRepository
 from app.config import Config
 from app.schemas.reservation_schema import (
     AvailableReservationResponse,
     AvailableSlot,
+    ConfirmReservationResponse,
     ReservationCreateRequest,
     ReservationListResponse,
     ReservationResponse,
@@ -133,12 +136,59 @@ class ReservationService:
             logger.error(f"[service/reservation_service] get_reservations_by_admin error: {e}")
             raise e
 
-    async def confirm_reservations(self, reservation_id: int, user_type: UserType) -> None:
-        # 1. 예약 조회
-        # 2. 해당 시간과 겹치는 슬롯 조회
-        # 3. 슬롯 조회 결과가 없으면 not_found_error 반환
-        # 4. 각 슬롯의 남은 인원수가 하나라도 예약하려는 인원수보다 적으면 예약 불가능 에러 반환
-        # 5. 슬롯의 남은 인원수를 예약 인원수만큼 감소시키고 업데이트
-        # 6. 슬롯과 예약의 관계 테이블에 데이터 추가
-        # 7. 예약 상태를 확정으로 업데이트
-        pass
+    async def confirm_reservations(self, reservation_id: int, user_type: UserType) -> ConfirmReservationResponse:
+        try:
+            if user_type != UserType.ADMIN.value:
+                raise AuthorizationError("권한이 없습니다.")
+
+            async with self.session_factory() as session:
+                async with session.begin():
+                    reservation = await self._fetch_and_validate_reservation(session, reservation_id)
+                    overlapping_slots = await self._fetch_and_validate_slots(session, reservation)
+                    await self._update_slots_and_confirm_reservation(session, reservation, overlapping_slots)
+                    await session.commit()
+                return ConfirmReservationResponse(is_success=True)
+
+        except Exception as e:
+            logger.error(f"[service/reservation_service] confirm_reservations error: {e}")
+            raise e
+
+    async def _update_slots_and_confirm_reservation(self, session, reservation, overlapping_slots):
+        for slot in overlapping_slots:
+            slot.remaining_capacity -= reservation.applicants
+
+        reservation.status = ReservationStatus.CONFIRMED
+        reservation.slots = overlapping_slots
+        await self.repository.update_reservation_with_external_session(reservation, session)
+
+    async def _fetch_and_validate_slots(self, session, reservation):
+        exam_start_datetime = datetime.combine(reservation.exam_date, reservation.exam_start_time)
+        exam_end_datetime = datetime.combine(reservation.exam_date, reservation.exam_end_time)
+
+        overlapping_slots = await self.slot_repository.get_overlapping_slots_with_external_session(
+            exam_start_datetime, exam_end_datetime, "[]", session
+        )
+        if not overlapping_slots or len(overlapping_slots) == 0:
+            raise NotFoundError("슬롯을 찾을 수 없습니다.")
+
+            # 각 슬롯의 남은 인원수가 하나라도 예약하려는 인원수보다 적으면 안된다.
+        if not self._check_remaining_capacity(overlapping_slots, reservation.applicants):
+            raise BadRequestError("예약 불가능한 시간대입니다.")
+        return overlapping_slots
+
+    async def _fetch_and_validate_reservation(self, session, reservation_id):
+        reservation = await self.repository.get_reservation_by_id_with_external_session(reservation_id, session)
+        if not reservation:
+            raise NotFoundError("예약을 찾을 수 없습니다.")
+
+        if (reservation.status != ReservationStatus.PENDING) or (
+            datetime.combine(reservation.exam_date, reservation.exam_start_time) < datetime.now()
+        ):
+            raise BadRequestError("확정 가능한 예약이 아닙니다.")
+        return reservation
+
+    def _check_remaining_capacity(self, overlapping_slots: List[Slot], reservation_applicants: int) -> None:
+        for slot in overlapping_slots:
+            if slot.remaining_capacity < reservation_applicants:
+                return False
+        return True
