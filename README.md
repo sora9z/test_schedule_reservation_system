@@ -133,6 +133,7 @@ alembic upgrade head
 ```
 
 - 테스트를 위해 Slot 데이터를 생성하여야 합니다. 아래의 SQL을 참고하여 데이터를 생성해주세요
+- [Slot 데이터 생성 SQL](sql/.sql)
 
 4. 애플리케이션 실행
 
