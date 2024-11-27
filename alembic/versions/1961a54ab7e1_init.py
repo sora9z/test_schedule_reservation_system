@@ -1,8 +1,8 @@
-"""user,reservation,slot model add
+"""init
 
-Revision ID: 1a1e2cf83a98
+Revision ID: 1961a54ab7e1
 Revises: 
-Create Date: 2024-11-27 00:52:13.703760
+Create Date: 2024-11-27 23:27:11.568948
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "1a1e2cf83a98"
+revision: str = "1961a54ab7e1"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -29,8 +29,8 @@ def upgrade() -> None:
         sa.Column("end_time", sa.Time(), nullable=False),
         sa.Column("time_range", postgresql.TSTZRANGE(), nullable=False),
         sa.Column("remaining_capacity", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("date", "start_time", "end_time", name="unique_slot"),
     )
@@ -42,8 +42,8 @@ def upgrade() -> None:
         sa.Column("email", sa.String(), nullable=True),
         sa.Column("hashed_password", sa.String(), nullable=True),
         sa.Column("type", postgresql.ENUM("USER", "ADMIN", name="user_type"), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
@@ -57,8 +57,8 @@ def upgrade() -> None:
         sa.Column("exam_end_time", sa.Time(), nullable=False),
         sa.Column("applicants", sa.Integer(), nullable=False),
         sa.Column("status", postgresql.ENUM("PENDING", "CONFIRMED", name="reservation_status"), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint("exam_end_time > exam_start_time", name="check_exam_time_valid"),
         sa.ForeignKeyConstraint(
             ["user_id"],
@@ -72,14 +72,8 @@ def upgrade() -> None:
         "reservation_slots",
         sa.Column("reservation_id", sa.Integer(), nullable=False),
         sa.Column("slot_id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["reservation_id"],
-            ["reservations.id"],
-        ),
-        sa.ForeignKeyConstraint(
-            ["slot_id"],
-            ["slots.id"],
-        ),
+        sa.ForeignKeyConstraint(["reservation_id"], ["reservations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["slot_id"], ["slots.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("reservation_id", "slot_id"),
     )
     # ### end Alembic commands ###
