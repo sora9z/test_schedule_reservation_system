@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.database.models.reservation import Reservation
 from app.common.database.models.slot import Slot
+from app.common.database.models.user import User
 from app.config import Config
 from app.services.reservation_service import ReservationService
 
@@ -56,6 +57,13 @@ def mock_slot(mocker):
         return mock_slt
 
     return _mock_slot
+
+
+@pytest.fixture
+def mock_user(mocker):
+    mock_user = mocker.Mock(spec=User)
+    mock_user.id = 1
+    return mock_user
 
 
 @pytest.fixture

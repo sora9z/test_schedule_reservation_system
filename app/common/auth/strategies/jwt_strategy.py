@@ -22,7 +22,7 @@ class JWTAuthStrategy(AuthStrategy):
         try:
             decoded_data = self.jwt_service.verify_token(token)
             return {
-                "user_id": decoded_data.get("sub"),
+                "user_id": decoded_data.get("user_id"),
                 "type": decoded_data.get("type"),
             }
         except Exception as e:

@@ -5,6 +5,7 @@ from typing import List
 from sqlalchemy.ext.asyncio import async_scoped_session
 
 from app.common.constants import ReservationStatus, UserType
+from app.common.database.models.reservation import Reservation
 from app.common.database.models.slot import Slot
 from app.common.exceptions import AuthorizationError, BadRequestError, NotFoundError
 from app.common.respository.reservation_repository import ReservationRepository
@@ -35,65 +36,30 @@ class ReservationService:
         self.settings = settings
         self.session_factory = session_factory
 
-    async def create_reservation(self, input_data: ReservationCreateRequest) -> ReservationResponse:
-        def _validate_reservation(exam_date, exam_start_time, exam_end_time, applicants):
-            today = datetime.now().date()
-            if exam_date < today:
-                raise ValueError("시험 날짜는 오늘 이후로 설정해야 합니다.")
-            if exam_date < today + timedelta(days=3):
-                raise ValueError("시험 날짜는 예약 신청일 기준 최소 3일 전이어야 합니다.")
-            if exam_start_time >= exam_end_time:
-                raise ValueError("시험 시작 시간은 시험 종료 시간보다 이전이어야 합니다.")
-            if applicants < 1 or applicants > self.settings.MAX_APPLICANTS:
-                raise ValueError(f"응시자 수는 1 이상 {self.settings.MAX_APPLICANTS} 이하로 설정해야 합니다.")
+    async def create_reservation(self, input_data: ReservationCreateRequest, user_id: int) -> ReservationResponse:
 
         async with self.session_factory() as session:
             async with session.begin():
                 try:
-                    _validate_reservation(
+                    await self._validation_reservation(
                         input_data.exam_date,
                         input_data.exam_start_time,
                         input_data.exam_end_time,
                         input_data.applicants,
+                        session,
                     )
 
-                    input_data.user_id = 1  # TODO: 임시 유저 아이디 설정
-
-                    # 시험 시작 일시와 종료 일시 생성
-                    exam_start_datetime = datetime.combine(input_data.exam_date, input_data.exam_start_time)
-                    exam_end_datetime = datetime.combine(input_data.exam_date, input_data.exam_end_time)
-
-                    # 겹치는 슬롯의 총 응시자 수 계산
-                    overlapping_slots = await self.slot_repository.get_overlapping_slots_with_external_session(
-                        exam_start_datetime, exam_end_datetime, "[]", session
+                    reservation_data = Reservation(
+                        user_id=user_id,
+                        exam_date=input_data.exam_date,
+                        exam_start_time=input_data.exam_start_time,
+                        exam_end_time=input_data.exam_end_time,
+                        applicants=input_data.applicants,
+                        status=ReservationStatus.PENDING,
                     )
-                    total_applicants = sum(
-                        overlapping_slot.remaining_capacity for overlapping_slot in overlapping_slots
-                    )
-
-                    # 총 응시자 수가 지원자 수보다 많으면 예약 생성 불가
-                    if total_applicants + input_data.applicants > self.settings.MAX_APPLICANTS:
-                        raise ValueError("총 응시자 수가 지원자 수보다 많습니다.")
-
-                    reservation_data = {
-                        "user_id": input_data.user_id,
-                        "exam_date": input_data.exam_date,
-                        "exam_start_time": input_data.exam_start_time,
-                        "exam_end_time": input_data.exam_end_time,
-                        "applicants": input_data.applicants,
-                        "status": ReservationStatus.PENDING,
-                    }
                     result = await self.repository.create_reservation_with_external_session(reservation_data, session)
 
-                    return ReservationResponse(
-                        id=result.id,
-                        user_id=result.user_id,
-                        exam_date=result.exam_date,
-                        exam_start_time=result.exam_start_time,
-                        exam_end_time=result.exam_end_time,
-                        applicants=result.applicants,
-                        status=result.status,
-                    )
+                    return ReservationResponse.model_validate(result)
                 except Exception as e:
                     logger.error(f"[service/reservation_service] create_reservation error: {e}")
                     raise e
@@ -192,3 +158,33 @@ class ReservationService:
             if slot.remaining_capacity < reservation_applicants:
                 return False
         return True
+
+    async def _validation_reservation(self, exam_date, exam_start_time, exam_end_time, applicants, session):
+        """
+        [예약 생성 및 업데이트 시 검증 로직]
+        - 예약 날짜 및 시간 검증
+        - 응시자 수 검증
+        - 예약 가능 유무 검증
+        """
+
+        today = datetime.now().date()
+        if exam_date < today or exam_date < today + timedelta(days=3):
+            raise ValueError("시험 날짜는 예약 신청일 기준 최소 3일 전이어야 합니다.")
+        if exam_start_time >= exam_end_time:
+            raise ValueError("시험 시작 시간은 시험 종료 시간보다 이전이어야 합니다.")
+        if applicants < 1 or applicants > self.settings.MAX_APPLICANTS:
+            raise ValueError(f"응시자 수는 1 이상 {self.settings.MAX_APPLICANTS} 이하로 설정해야 합니다.")
+
+        exam_start_datetime = datetime.combine(exam_date, exam_start_time)
+        exam_end_datetime = datetime.combine(exam_date, exam_end_time)
+
+        # 겹치는 슬롯중 최소 남은 인원수가 지원자 수보다 적으면 안된다
+        overlapping_slots = await self.slot_repository.get_overlapping_slots_with_external_session(
+            exam_start_datetime, exam_end_datetime, "[]", session
+        )
+        if overlapping_slots:
+            min_remaining_capacity = min(overlapping_slot.remaining_capacity for overlapping_slot in overlapping_slots)
+            if min_remaining_capacity < applicants:
+                raise ValueError("예약 불가능한 시간대입니다.")
+        else:
+            raise ValueError("겹치는 슬롯이 없습니다.")

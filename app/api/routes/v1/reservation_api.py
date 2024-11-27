@@ -24,9 +24,11 @@ router = APIRouter(prefix="/v1/reservations")
 @inject
 async def create_reservation(
     body: ReservationCreateRequest,
+    user_info: dict = Depends(get_current_user),
     reservation_service: ReservationService = Depends(Provide[Container.reservation_service]),
 ) -> ReservationResponse:
-    return await reservation_service.create_reservation(body)
+    user_id = user_info["user_id"]
+    return await reservation_service.create_reservation(body, user_id)
 
 
 @router.get(
