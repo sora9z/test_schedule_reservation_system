@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.common.auth.get_current_user import get_current_user
 from app.container import Container
-from app.schemas.reservation_schema import ConfirmReservationResponse
+from app.schemas.reservation_schema import ConfirmReservationResponse, ReservationListResponse
 from app.services.reservation_service import ReservationService
 
 logger = logging.getLogger(__name__)
@@ -31,3 +31,17 @@ async def confirm_reservation(
     except Exception as e:
         logger.error(f"Error confirming reservation {reservation_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get(
+    "/reservations",
+    response_model=ReservationListResponse,
+    status_code=status.HTTP_200_OK,
+)
+@inject
+async def get_reservations_by_admin(
+    user_info: dict = Depends(get_current_user),
+    reservation_service: ReservationService = Depends(Provide[Container.reservation_service]),
+) -> ReservationListResponse:
+    user_type = user_info["type"]
+    return await reservation_service.get_reservations_by_admin(user_type)

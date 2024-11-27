@@ -63,20 +63,6 @@ async def get_reservations(
     return await reservation_service.get_reservations_by_user(user_id)
 
 
-@router.get(
-    "/admin",
-    response_model=ReservationListResponse,
-    status_code=status.HTTP_200_OK,
-)
-@inject
-async def get_reservations_by_admin(
-    user_info: dict = Depends(get_current_user),
-    reservation_service: ReservationService = Depends(Provide[Container.reservation_service]),
-) -> ReservationListResponse:
-    user_type = user_info["type"]
-    return await reservation_service.get_reservations_by_admin(user_type)
-
-
 @router.patch(
     "/{reservation_id}",
     response_model=ReservationUpdateResponse,

@@ -28,12 +28,21 @@ class Container(containers.DeclarativeContainer):
     # Gateways
     db = providers.Singleton(Database, database_url=database_url)
 
+    # JWT Service
+    jwt_service = providers.Singleton(JWTService, settings=config_instance)
+    # Authentication Strategy
+    jwt_auth_strategy = providers.Singleton(JWTAuthStrategy, jwt_service=jwt_service)
+    # Authentication Guard
+    auth_guard = providers.Singleton(AuthGuard, strategy=jwt_auth_strategy)
+
     # Repositories
     auth_repository = providers.Factory(AuthRepository, session_factory=db.provided.get_session)
     reservation_repository = providers.Factory(ReservationRepository, session_factory=db.provided.get_session)
     slot_repository = providers.Factory(SlotRepository, session_factory=db.provided.get_session)
     # Services
-    auth_service = providers.Factory(AuthService, repository=auth_repository, settings=config_instance)
+    auth_service = providers.Factory(
+        AuthService, repository=auth_repository, settings=config_instance, jwt_service=jwt_service
+    )
     reservation_service = providers.Factory(
         ReservationService,
         repository=reservation_repository,
@@ -41,13 +50,6 @@ class Container(containers.DeclarativeContainer):
         settings=config_instance,
         session_factory=db.provided.get_session,
     )
-
-    # JWT Service
-    jwt_service = providers.Singleton(JWTService, settings=config_instance)
-    # Authentication Strategy
-    jwt_auth_strategy = providers.Singleton(JWTAuthStrategy, jwt_service=jwt_service)
-    # Authentication Guard
-    auth_guard = providers.Singleton(AuthGuard, strategy=jwt_auth_strategy)
 
 
 container = Container()
