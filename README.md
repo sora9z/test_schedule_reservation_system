@@ -162,7 +162,21 @@ uvicorn app.main:app --reload
 
 ```
 
-4. 테스트 코드 실행
+4. 테스트 방법
+
+- 테스트를 위한 사용자를 생성해야합니다. API 명세를 참고 또는 아래의 커멘드로 생성할 수 있습니다.
+
+```
+curl -X POST "http://localhost:8000/api/v1/users/" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "email": "user@example.com",
+           "password": "yourpassword",
+           "type": "ADMIN"
+         }'
+```
+
+- 테스트 코드 실행
 
 ```
 
