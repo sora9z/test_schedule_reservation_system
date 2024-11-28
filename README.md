@@ -1,5 +1,16 @@
 # test_schedule_reservation_system
 
+목차
+
+## 목차
+
+1. [설계 및 고려사항](#설계-및-고려사항)
+2. [프로젝트 구조](#프로젝트-구조)
+3. [프로젝트 설정](#프로젝트-설정)
+4. [요구사항](#요구사항)
+5. [실행 방법](#실행-방법)
+6. [API 명세](#API-명세)
+
 ## 설계 및 고려사항
 
 1. 요구사항에 대한 가정
@@ -93,6 +104,8 @@
 
 ## 실행 방법
 
+- Python 3.12 이상
+
 1. 도커 컴포즈 실행
 
 ```
@@ -106,14 +119,19 @@ docker compose down
 2. 의존성 설치
 
 ```
-# 프로젝트 내 가상환경 생성
-poetry config virtualenvs.in-project true
+
+# poetry가 설치되어 있어야 합니다.
+pip install poetry
+
+# 의존성 설치
+poetry install
 
 # 가상환경 활성화
 poetry shell
 
-# 의존성 설치
-poetry install
+# 가상환경 활성화(수동 필요시)
+source .venv/bin/activate
+
 ```
 
 3. 데이터베이스 마이그레이션
@@ -121,6 +139,7 @@ poetry install
 - 초기 데이터 마이그레이션을 생성해두었습니다.
 
 ```
+# 초기 데이터 마이그레이션 생성
 alembic init alembic
 
 ```
