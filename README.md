@@ -140,7 +140,7 @@ source .venv/bin/activate
 
 ```
 # 초기 데이터 마이그레이션 생성
-alembic init alembic
+alembic upgrade head
 
 ```
 
